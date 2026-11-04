@@ -92,6 +92,8 @@ label.f input,label.f select{background:var(--paper);border:1px solid var(--rule
 .legend .lg-g{border-style:dashed}
 textarea{width:100%;height:110px;font-family:var(--f-mono);font-size:11px;background:var(--paper);color:var(--ink);border:1px solid var(--rule);padding:6px;resize:vertical}
 .toast{font-size:12px;color:var(--sel);min-height:1em}
+.syncbar{margin:0;font-size:12.5px;color:var(--graphite);border-left:4px solid var(--sel);padding:4px 10px;background:var(--sheet)}
+.syncbar.warn{border-left-color:var(--brick);color:var(--ink)}
 .facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:4px 18px;font-size:12.5px;padding:10px 12px}
 .facts div{border-top:1px solid var(--rule);padding-top:4px}
 svg text{font-family:var(--f-mono);user-select:none;pointer-events:none}
@@ -145,6 +147,7 @@ body.xpOn{overflow:hidden}
     </div>
   </header>
 
+  <p class="syncbar" id="sync" role="status">Edits save automatically in this browser.</p>
   <div class="upd" id="upd" hidden role="alert">
     <div><b>Claude updated this layout.</b> <span id="updNote"></span></div>
     <div class="btns"><button id="updLoad" class="primary" type="button">Load the update</button><button id="updKeep" type="button">Keep my edits</button></div>
@@ -774,7 +777,7 @@ svg.addEventListener('pointermove',e=>{if(ptrs.has(e.pointerId))ptrs.set(e.point
 const end=e=>{ptrs.delete(e.pointerId);svg.style.cursor='';
   if(!drag)return;const m=drag.mode;
   if(m==='pinch'){if(ptrs.size===0)drag=null;return}
-  drag=null;if(m!=='pan')refresh()};
+  drag=null;if(m!=='pan')refresh();if(pendingRemote){const p=pendingRemote;pendingRemote=null;shRemote(p)}};
 svg.addEventListener('pointerup',end);svg.addEventListener('pointercancel',end);
 $('zIn').onclick=()=>zoomCenter(1/1.35);$('zOut').onclick=()=>zoomCenter(1.35);$('zFit').onclick=fitPlan;
 svg.addEventListener('dblclick',e=>{if(e.target===svg||e.target.tagName==='line'){const p=pt(e);zoomAt(1/1.6,p.x,p.y)}});
@@ -1841,20 +1844,28 @@ $('stUrl').addEventListener('keydown',e=>{if(e.key==='Enter')$('stUrlGo').click(
 $('stUp').onclick=()=>$('stFile').click();
 $('stFile').onchange=e=>{const f=e.target.files&&e.target.files[0];e.target.value='';if(!f)return;const rd=new FileReader();
   rd.onload=()=>{const img=new Image();img.onload=()=>{const s=Math.min(1,1024/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.width*s));c.height=Math.max(1,Math.round(img.height*s));
-    c.getContext('2d').drawImage(img,0,0,c.width,c.height);stApply({url:c.toDataURL('image/jpeg',0.86),file:f.name.slice(0,60)});stMsg(`Applied ${f.name} to ${SURF[stSel].n}.`)};
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);const id=stSel,file=f.name.slice(0,60),done=()=>stMsg(`Applied ${f.name} to ${SURF[id].n}.`);
+    const small=()=>{const k=sref?Math.min(1,512/Math.max(c.width,c.height)):1,c2=document.createElement('canvas');c2.width=Math.round(c.width*k);c2.height=Math.round(c.height*k);c2.getContext('2d').drawImage(c,0,0,c2.width,c2.height);
+      stSel=id;stApply({url:c2.toDataURL('image/jpeg',sref?0.75:0.86),file});done()};
+    if(typeof sAssets!=='undefined'&&sAssets){stMsg('Uploading…');c.toBlob(b=>{sAssets.upload(b,{type:'image/jpeg'}).then(r=>{stSel=id;stApply({url:'/_blob/'+r.id,file});done()},()=>small())},'image/jpeg',0.88)}else small()};
     img.onerror=()=>stMsg('That file is not an image this browser can open.');img.src=rd.result};rd.readAsDataURL(f)};
 $('stReset').onclick=()=>{push();delete design[stSel];dropMat(stSel);if(stSel==='foliage'){for(const k in fixed)if(k.startsWith('leaf')){fixed[k].dispose();delete fixed[k]}siteKey=''}queue3D();stRefresh();stMsg(`${SURF[stSel].n} is back to the original finish.`)};
 $('stAll').onclick=()=>{push();design={};dropAll();for(const k in fixed)if(k.startsWith('leaf')){fixed[k].dispose();delete fixed[k]}siteKey='';queue3D();stRefresh();stMsg('Every finish is back to the original design. Undo brings your changes back.')};
 $('stCopy').onclick=()=>copyText(Object.keys(SURF).map(id=>`${id} · ${SURF[id].n}: ${finishName(id)}${surf(id).c&&surf(id).c!=='#ffffff'?' '+surf(id).c:''}${design[id]?' (changed)':''}`).join('\n'));
 // saved designs: whole house (layout + finishes + furniture), switch between them
 const DK='fm1947-designs',getD=()=>{try{return JSON.parse(localStorage.getItem(DK)||'{}')}catch(e){return {}}};
-function dsList(){const box=$('dsList'),d=getD(),ks=Object.keys(d).sort((a,b)=>d[b].t-d[a].t);box.innerHTML='';$('dsNone').hidden=!!ks.length;
-  ks.forEach(n=>{const row=document.createElement('div');row.className='dsrow';const t=document.createElement('span');const b=document.createElement('b');b.textContent=n;const dt=document.createElement('i');dt.textContent=new Date(d[n].t).toLocaleString();t.append(b,dt);
+function dsAll(){if(typeof sharedDesigns!=='undefined'&&sharedDesigns)return sharedDesigns.map(x=>({key:x.id,n:x.name,s:x.s,t:x.t}));const d=getD();return Object.keys(d).map(n=>({key:n,n,s:d[n].s,t:d[n].t}))}
+function dsList(){const box=$('dsList'),all=dsAll().sort((a,b)=>b.t-a.t);box.innerHTML='';$('dsNone').hidden=!!all.length;const d={};all.forEach(x=>d[x.n]=x);
+  all.forEach(({n,key})=>{const row=document.createElement('div');row.className='dsrow';const t=document.createElement('span');const b=document.createElement('b');b.textContent=n;const dt=document.createElement('i');dt.textContent=new Date(d[n].t).toLocaleString();t.append(b,dt);
     const bt=(label,fn,cls)=>{const x=document.createElement('button');x.type='button';x.textContent=label;if(cls)x.className=cls;x.onclick=fn;return x};
-    const del=bt('Delete',()=>{if(del.dataset.ok){const v=getD();delete v[n];try{localStorage.setItem(DK,JSON.stringify(v))}catch(e){}dsList();stMsg(`Deleted “${n}”.`)}else{del.dataset.ok=1;del.textContent='Confirm delete'}});
-    row.append(t,bt('Load',()=>{push();load(getD()[n].s);selId=rooms[0]?.id;refresh();stRefresh();stMsg(`Loaded “${n}”. Undo goes back.`)},'primary'),
-      bt('Finishes only',()=>{const v=JSON.parse(getD()[n].s);push();design=v.design||{};dropAll();siteKey='';queue3D();stRefresh();stMsg(`Applied the finishes from “${n}”; layout and furniture unchanged.`)}),del);box.appendChild(row)})}
-$('dsSave').onclick=()=>{const d=getD(),n=$('dsName').value.trim()||('Design '+(Object.keys(d).length+1));d[n]={s:state(),t:Date.now()};
+    const del=bt('Delete',()=>{if(del.dataset.ok){if(sharedDesigns&&sdb){sdb.doc('designs/'+key).delete().then(()=>stMsg(`Deleted “${n}”.`),()=>stMsg('Only people with edit access can delete saved designs.'))}else{const v=getD();delete v[n];try{localStorage.setItem(DK,JSON.stringify(v))}catch(e){}dsList();stMsg(`Deleted “${n}”.`)}}else{del.dataset.ok=1;del.textContent='Confirm delete'}});
+    row.append(t,bt('Load',()=>{push();load(d[n].s);selId=rooms[0]?.id;refresh();stRefresh();stMsg(`Loaded “${n}”. Undo goes back.`)},'primary'),
+      bt('Finishes only',()=>{const v=JSON.parse(d[n].s);push();design=v.design||{};dropAll();siteKey='';queue3D();stRefresh();stMsg(`Applied the finishes from “${n}”; layout and furniture unchanged.`)}),del);box.appendChild(row)})}
+$('dsSave').onclick=()=>{const n0=$('dsName').value.trim()||('Design '+(dsAll().length+1));
+  if(sharedDesigns&&sdb){const s1=state();if(s1.length>250000){stMsg('This design is too big to share because of large uploaded images. Use smaller pictures.');return}
+    sdb.collection('designs').add({name:n0.slice(0,80),s:s1,t:Date.now(),by:shMe||null}).then(()=>{stMsg(`Saved “${n0}” for everyone with edit access.`);$('dsName').value=''},
+      e=>stMsg(e&&e.code==='quota_exceeded'?'The shared design list is full. Delete one first.':'Only people with edit access can save shared designs.'));return}
+  const d=getD(),n=n0;d[n]={s:state(),t:Date.now()};
   try{localStorage.setItem(DK,JSON.stringify(d));stMsg(`Saved “${n}”. Switch between designs any time below.`);$('dsName').value=''}catch(e){stMsg('This browser is out of room for saved designs. Delete one, or upload smaller images.')}dsList()};
 // furniture list: show or hide each piece
 function stSync(){const on=$('fuOn');if(!on)return;on.checked=furnOn;$('tFurn').classList.toggle('on',furnOn);const box=$('fuList');box.innerHTML='';
@@ -1962,16 +1973,47 @@ document.querySelectorAll('[data-ex]').forEach(b=>b.onclick=async()=>{
 
 // ---------- Autosave: keep this viewer's working copy between visits ----------
 const WK='fm1947-working';let lastSaved='';
-const REV=34,RK='fm1947-rev',REV_NOTE='Walkthrough, street / aerial / bird\'s-eye views, design studio with a material ID for every finish, furniture, landscaping and time of day';
+const REV=35,RK='fm1947-rev',REV_NOTE='Shared editing for everyone you share the page with, plus the walkthrough, street / aerial / bird\'s-eye views, design studio with a material ID for every finish, furniture, landscaping and time of day';
 let staleCopy=false;
 try{const w=localStorage.getItem(WK),rv=+(localStorage.getItem(RK)||0);
   if(w){if(rv>=REV){load(w);selId=rooms[0]?.id;lastSaved=w;setTimeout(()=>toast('Picked up your last edits. Reset layout starts fresh.'),300)}
     else{staleCopy=w}}
   else localStorage.setItem(RK,String(REV))}catch(e){}
-function autosave(){if(staleCopy)return;const s=state();if(s===lastSaved)return;try{localStorage.setItem(WK,s);localStorage.setItem(RK,String(REV));lastSaved=s;$('saved').textContent='Edits saved in this browser'}catch(e){$('saved').textContent='This browser blocked saving. Use Copy layout JSON to keep edits.'}}
+
+// ---------- Shared editing: one copy of the house for everyone the owner shares the page with ----------
+let sref=null,sdb=null,sUser=null,sAssets=null,shMe=null,lastShared=null,shReady=false,shBusy=false,shFailAt=0,shCanWrite=null,sharedDesigns=null,pendingRemote=null;
+function syncNote(t,warn){const el=$('sync');el.textContent=t;el.classList.toggle('warn',!!warn)}
+async function shInit(){if(!window.claude||typeof claude.use!=='function')return;
+  const db=await claude.use('db');if(!db)return;sdb=db;
+  claude.use('user').then(u=>{sUser=u;if(!u)return;u.id().then(i=>shMe=i);u.can('data.write').then(v=>{shCanWrite=v;if(v===false)syncNote('You can walk through and look, but only people with edit access can change the shared house. Your changes stay in this browser.',true)})});
+  claude.use('assets').then(a=>sAssets=a);
+  syncNote('Connecting to the shared copy of the house…');sref=db.doc('house/current');
+  const tm=setTimeout(()=>{if(!shReady)syncNote('Can’t reach the shared copy yet. Your edits are kept in this browser and will sync once it connects.',true)},10000);
+  sref.onSnapshot(snap=>{if(!snap.metadata.fromCache){clearTimeout(tm);shReady=true}shRemote(snap)},
+    e=>{clearTimeout(tm);sref=null;syncNote(e.code==='revoked'?'Shared editing is off for this view. Edits stay in this browser.':'The shared copy stopped answering. Reload the page to reconnect; edits stay in this browser meanwhile.',true)});
+  db.collection('designs').onSnapshot(qs=>{sharedDesigns=qs.docs.map(d=>({id:d.id,...d.data()}));dsList()},()=>{sharedDesigns=null;dsList()})}
+function shRemote(snap){
+  if(!snap.exists){if(snap.metadata.fromCache)return;lastShared=null;
+    if(sUser)sUser.isOwner().then(o=>{if(o&&!staleCopy)shPush(state());else syncNote('Shared page · nobody has saved changes yet. What you change here is saved for everyone with edit access.')});return}
+  const d=snap.data();if(snap.metadata.hasPendingWrites)return;
+  if(d.s===lastShared||d.s===state()){lastShared=d.s;shStatus(d);return}
+  if((d.rev||0)<REV){staleCopy=d.s;lastShared=d.s;$('upd').hidden=false;$('updNote').textContent=REV_NOTE+' · the shared copy has edits from before this update.';shStatus(d);return}
+  if(drag){pendingRemote=snap;return}
+  lastShared=d.s;staleCopy=false;$('upd').hidden=true;load(d.s);if(!rooms.some(r=>r.id===selId)&&!openings.some(o=>o.id===selId)&&!items.some(i=>i.id===selId))selId=rooms[0]?.id;
+  refresh();stRefresh();shStatus(d,true)}
+async function shStatus(d,applied){let who='';try{if(d.by){if(d.by===shMe)who='you';else if(sUser){const ps=await sUser.profiles([d.by]);who=(ps[d.by]&&ps[d.by].name)||'someone'}}}catch(e){}
+  const when=d.t?new Date(d.t).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'';
+  syncNote(`Shared house · everyone with edit access sees the same version${who?` · last change by ${who}`:''}${when?', '+when:''}${applied?' · just updated':''}`)}
+async function shPush(s){if(!sref||!shReady||shBusy||s===lastShared||staleCopy||shCanWrite===false||Date.now()-shFailAt<15000)return;
+  if(s.length>250000){shFailAt=Date.now();syncNote('This version is too big to share, usually because of large uploaded images. Use smaller pictures; your edits are kept in this browser.',true);return}
+  shBusy=true;const prev=lastShared;lastShared=s;const t=Date.now();
+  try{await sref.set({s,rev:REV,t,by:shMe||null});shStatus({by:shMe,t})}
+  catch(e){lastShared=prev;shFailAt=Date.now();syncNote(e.code==='quota_exceeded'?'The shared copy is full. Your edits are kept in this browser.':e.code==='invalid_argument'?'This version is too big to share. Your edits are kept in this browser.':'Couldn’t save to the shared copy just now. Your edits are kept in this browser and will retry.',true)}
+  finally{shBusy=false}}
+function autosave(){if(staleCopy)return;const s=state();shPush(s);if(s===lastSaved)return;try{localStorage.setItem(WK,s);localStorage.setItem(RK,String(REV));lastSaved=s;$('saved').textContent='Edits saved in this browser'}catch(e){$('saved').textContent='This browser blocked saving. Use Copy layout JSON to keep edits.'}}
 setInterval(autosave,2000);addEventListener('pagehide',autosave);
 if(staleCopy){$('upd').hidden=false;$('updNote').textContent=REV_NOTE}
 $('updLoad').onclick=()=>{staleCopy=false;$('upd').hidden=true;autosave();toast('Loaded the latest layout. Your old copy was replaced.')};
 $('updKeep').onclick=()=>{const w=staleCopy;staleCopy=false;$('upd').hidden=true;push();load(w);selId=rooms[0]?.id;fitView();refresh();autosave();toast('Kept your edits. Reset layout loads the latest version any time.')};
-refresh();zoomLbl();init3D();init4K();stInit();dsList();stSync();
+refresh();zoomLbl();init3D();init4K();stInit();dsList();stSync();shInit();
 </script>
