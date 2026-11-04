@@ -1,0 +1,300 @@
+{
+ "name": "948 Initial",
+ "units": "feet",
+ "north": "up (front faces south)",
+ "rooms": [
+  {
+   "id": 1,
+   "name": "Garage + laundry",
+   "type": "garage",
+   "x": 0,
+   "y": 0,
+   "w": 12,
+   "d": 30
+  },
+  {
+   "id": 2,
+   "name": "Front room",
+   "type": "living",
+   "x": 12,
+   "y": 15,
+   "w": 22,
+   "d": 15
+  },
+  {
+   "id": 3,
+   "name": "Kitchen",
+   "type": "kitchen",
+   "x": 12,
+   "y": 0,
+   "w": 18,
+   "d": 15
+  },
+  {
+   "id": 4,
+   "name": "Den",
+   "type": "living",
+   "x": 30,
+   "y": 0,
+   "w": 12,
+   "d": 15
+  },
+  {
+   "id": 7,
+   "name": "Hall",
+   "type": "hall",
+   "x": 42,
+   "y": 11.5,
+   "w": 15,
+   "d": 3.5
+  },
+  {
+   "id": 8,
+   "name": "Bath",
+   "type": "bath",
+   "x": 42,
+   "y": 0,
+   "w": 6,
+   "d": 11.5
+  },
+  {
+   "id": 9,
+   "name": "Bedroom 3",
+   "type": "bedroom",
+   "x": 48,
+   "y": 0,
+   "w": 9,
+   "d": 11.5
+  },
+  {
+   "id": 10,
+   "name": "Back room",
+   "type": "porch",
+   "x": 32,
+   "y": -9,
+   "w": 10,
+   "d": 9
+  },
+  {
+   "id": 11,
+   "name": "Primary suite",
+   "type": "bedroom",
+   "x": 34,
+   "y": 15,
+   "w": 23,
+   "d": 15
+  },
+  {
+   "id": 12,
+   "name": "Walk-in closet",
+   "type": "storage",
+   "x": 34,
+   "y": 17,
+   "w": 5,
+   "d": 13
+  },
+  {
+   "id": 13,
+   "name": "Nook",
+   "type": "bedroom",
+   "x": 34,
+   "y": 15,
+   "w": 5,
+   "d": 2,
+   "open": [
+    "e"
+   ]
+  }
+ ],
+ "openings": [
+  {
+   "id": "o1",
+   "name": "Garage door",
+   "kind": "garage",
+   "x": 6.5,
+   "y": 30,
+   "len": 9,
+   "o": "h"
+  },
+  {
+   "id": "o2",
+   "name": "Front window (triple)",
+   "kind": "window",
+   "x": 18,
+   "y": 30,
+   "len": 7,
+   "o": "h"
+  },
+  {
+   "id": "o3",
+   "name": "Front door",
+   "kind": "door",
+   "x": 26,
+   "y": 30,
+   "len": 3,
+   "o": "h"
+  },
+  {
+   "id": "o4",
+   "name": "Suite window (west)",
+   "kind": "window",
+   "x": 42,
+   "y": 30,
+   "len": 4,
+   "o": "h"
+  },
+  {
+   "id": "o5",
+   "name": "Suite window (east)",
+   "kind": "window",
+   "x": 51,
+   "y": 30,
+   "len": 4,
+   "o": "h"
+  },
+  {
+   "id": "o6",
+   "name": "Sink window",
+   "kind": "window",
+   "x": 17,
+   "y": 0,
+   "len": 2.5,
+   "o": "h"
+  },
+  {
+   "id": "o7",
+   "name": "Rear window (double)",
+   "kind": "window",
+   "x": 27,
+   "y": 0,
+   "len": 6,
+   "o": "h"
+  },
+  {
+   "id": "o8",
+   "name": "Den to back room",
+   "kind": "door",
+   "x": 37.5,
+   "y": 0,
+   "len": 3,
+   "o": "h"
+  },
+  {
+   "id": "o9",
+   "name": "Bath window",
+   "kind": "window",
+   "x": 45,
+   "y": 0,
+   "len": 2,
+   "o": "h"
+  },
+  {
+   "id": "o10",
+   "name": "Bedroom 3 window",
+   "kind": "window",
+   "x": 52.5,
+   "y": 0,
+   "len": 4,
+   "o": "h"
+  },
+  {
+   "id": "o11",
+   "name": "Back room window L",
+   "kind": "window",
+   "x": 34,
+   "y": -9,
+   "len": 3,
+   "o": "h"
+  },
+  {
+   "id": "o12",
+   "name": "Back room door",
+   "kind": "door",
+   "x": 37,
+   "y": -9,
+   "len": 3,
+   "o": "h"
+  },
+  {
+   "id": "o13",
+   "name": "Back room window R",
+   "kind": "window",
+   "x": 40,
+   "y": -9,
+   "len": 3,
+   "o": "h"
+  },
+  {
+   "id": "o14",
+   "name": "Kitchen to garage",
+   "kind": "door",
+   "x": 12,
+   "y": 12.5,
+   "len": 3,
+   "o": "v",
+   "flip": true
+  },
+  {
+   "id": "o16",
+   "name": "Suite door",
+   "kind": "door",
+   "x": 45,
+   "y": 15,
+   "len": 2.5,
+   "o": "h",
+   "flip": false
+  },
+  {
+   "id": "o18",
+   "name": "Bath door",
+   "kind": "door",
+   "x": 45,
+   "y": 11.5,
+   "len": 2.5,
+   "o": "h",
+   "flip": true
+  },
+  {
+   "id": "o19",
+   "name": "Bedroom 3 door",
+   "kind": "door",
+   "x": 50.5,
+   "y": 11.5,
+   "len": 2.5,
+   "o": "h",
+   "flip": true
+  },
+  {
+   "id": "o20",
+   "name": "Closet door",
+   "kind": "door",
+   "x": 39,
+   "y": 23.5,
+   "len": 2.5,
+   "o": "v"
+  }
+ ],
+ "removed": [
+  {
+   "o": "h",
+   "c": 15,
+   "a": 12,
+   "b": 34
+  },
+  {
+   "o": "v",
+   "c": 30,
+   "a": 0,
+   "b": 15
+  }
+ ],
+ "beams": [
+  {
+   "o": "h",
+   "c": 15,
+   "a": 12,
+   "b": 34,
+   "label": "ADD BEAM"
+  }
+ ]
+}
