@@ -93,6 +93,9 @@ label.f input,label.f select{background:var(--paper);border:1px solid var(--rule
 textarea{width:100%;height:110px;font-family:var(--f-mono);font-size:11px;background:var(--paper);color:var(--ink);border:1px solid var(--rule);padding:6px;resize:vertical}
 .toast{font-size:12px;color:var(--sel);min-height:1em}
 .syncbar{margin:0;font-size:12.5px;color:var(--graphite);border-left:4px solid var(--sel);padding:4px 10px;background:var(--sheet)}
+.verbar{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;border:1px solid var(--rule);background:var(--sheet);padding:8px 12px}
+.verbar select{background:var(--paper);border:1px solid var(--graphite);padding:4px 8px;font:inherit;font-weight:600;max-width:100%}
+.verbar.copy{border-color:var(--sel);box-shadow:inset 4px 0 0 var(--sel)}
 .syncbar.warn{border-left-color:var(--brick);color:var(--ink)}
 .facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:4px 18px;font-size:12.5px;padding:10px 12px}
 .facts div{border-top:1px solid var(--rule);padding-top:4px}
@@ -147,6 +150,11 @@ body.xpOn{overflow:hidden}
     </div>
   </header>
 
+  <div class="verbar" id="verbar" hidden>
+    <label class="f" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="lbl">Working on</span><select id="verSel" aria-label="Which version of the house"></select></label>
+    <div class="btns"><button id="verNew" type="button">New personal version…</button><button id="verFin" type="button" hidden>Copy finishes to main house</button><button id="verAll" type="button" hidden>Copy whole house to main</button><button id="verLink" type="button" hidden>Copy link to this version</button><button id="verDel" type="button" hidden>Delete this version</button></div>
+    <div class="row" id="verNewRow" hidden><input id="verName" placeholder="Whose version? e.g. Kandyce Blocker" aria-label="Version name" style="background:var(--paper);border:1px solid var(--rule);padding:5px 7px;min-width:0"><button id="verMake" class="primary" type="button">Create</button><button id="verCancel" type="button">Cancel</button></div>
+  </div>
   <p class="syncbar" id="sync" role="status">Edits save automatically in this browser.</p>
   <div class="upd" id="upd" hidden role="alert">
     <div><b>Claude updated this layout.</b> <span id="updNote"></span></div>
@@ -1973,7 +1981,7 @@ document.querySelectorAll('[data-ex]').forEach(b=>b.onclick=async()=>{
 
 // ---------- Autosave: keep this viewer's working copy between visits ----------
 const WK='fm1947-working';let lastSaved='';
-const REV=35,RK='fm1947-rev',REV_NOTE='Shared editing for everyone you share the page with, plus the walkthrough, street / aerial / bird\'s-eye views, design studio with a material ID for every finish, furniture, landscaping and time of day';
+const REV=36,RK='fm1947-rev',REV_NOTE='Personal versions (each person gets their own copy), shared editing, plus the walkthrough, street / aerial / bird\'s-eye views, design studio with a material ID for every finish, furniture, landscaping and time of day';
 let staleCopy=false;
 try{const w=localStorage.getItem(WK),rv=+(localStorage.getItem(RK)||0);
   if(w){if(rv>=REV){load(w);selId=rooms[0]?.id;lastSaved=w;setTimeout(()=>toast('Picked up your last edits. Reset layout starts fresh.'),300)}
@@ -1987,12 +1995,38 @@ async function shInit(){if(!window.claude||typeof claude.use!=='function')return
   const db=await claude.use('db');if(!db)return;sdb=db;
   claude.use('user').then(u=>{sUser=u;if(!u)return;u.id().then(i=>shMe=i);u.can('data.write').then(v=>{shCanWrite=v;if(v===false)syncNote('You can walk through and look, but only people with edit access can change the shared house. Your changes stay in this browser.',true)})});
   claude.use('assets').then(a=>sAssets=a);
-  syncNote('Connecting to the shared copy of the house…');sref=db.doc('house/current');
-  const tm=setTimeout(()=>{if(!shReady)syncNote('Can’t reach the shared copy yet. Your edits are kept in this browser and will sync once it connects.',true)},10000);
-  sref.onSnapshot(snap=>{if(!snap.metadata.fromCache){clearTimeout(tm);shReady=true}shRemote(snap)},
-    e=>{clearTimeout(tm);sref=null;syncNote(e.code==='revoked'?'Shared editing is off for this view. Edits stay in this browser.':'The shared copy stopped answering. Reload the page to reconnect; edits stay in this browser meanwhile.',true)});
+  $('verbar').hidden=false;
+  db.collection('copies').onSnapshot(qs=>{verList=qs.docs.map(d=>({id:d.id,...d.data()}));verFill();
+      if(!verBoot){verBoot=true;const want=location.hash.slice(1);let pref=null;try{pref=localStorage.getItem('fm1947-copy')}catch(e){}
+        const pick=verList.find(v=>v.id===want)||verList.find(v=>v.id===pref);if(pick&&workId==='main')verSwitch(pick.id,true)}},()=>{});
+  verSwitch('main',true);
   db.collection('designs').onSnapshot(qs=>{sharedDesigns=qs.docs.map(d=>({id:d.id,...d.data()}));dsList()},()=>{sharedDesigns=null;dsList()})}
+// ---------- Personal versions: each person gets their own copy of the house; the main house stays separate ----------
+let workId='main',verList=[],verBoot=false,shUnsub=null;
+const workPath=id=>id==='main'?'house/current':'copies/'+id,workName=id=>id==='main'?'Main house':((verList.find(v=>v.id===id)||{}).name||'Personal version');
+function verSwitch(id,quiet){if(!sdb)return;if(shUnsub){shUnsub();shUnsub=null}workId=id;sref=sdb.doc(workPath(id));lastShared=null;shReady=false;hist.length=0;
+  try{localStorage.setItem('fm1947-copy',id)}catch(e){}if(id!=='main'&&location.hash!=='#'+id)history.replaceState(null,'','#'+id);if(id==='main'&&location.hash)history.replaceState(null,'',location.pathname+location.search);
+  syncNote(`Opening ${workName(id)}…`);verFill();const tm=setTimeout(()=>{if(!shReady)syncNote('Can’t reach the shared copy yet. Your edits are kept in this browser and will sync once it connects.',true)},10000);
+  shUnsub=sref.onSnapshot(snap=>{if(!snap.metadata.fromCache){clearTimeout(tm);shReady=true}shRemote(snap)},
+    e=>{clearTimeout(tm);sref=null;syncNote(e.code==='revoked'?'Shared editing is off for this view. Edits stay in this browser.':'The shared copy stopped answering. Reload the page to reconnect; edits stay in this browser meanwhile.',true)});
+  if(!quiet)toast(`Now working on ${workName(id)}.`)}
+function verFill(){const sel=$('verSel');sel.innerHTML='';[{id:'main',name:'Main house'},...verList.slice().sort((a,b)=>a.name.localeCompare(b.name))].forEach(v=>{const o=document.createElement('option');o.value=v.id;o.textContent=v.id==='main'?'Main house (everyone)':`${v.name} · personal version`;sel.appendChild(o)});
+  sel.value=workId;const c=workId!=='main';['verFin','verAll','verLink','verDel'].forEach(k=>$(k).hidden=!c);$('verbar').classList.toggle('copy',c);$('verDel').textContent='Delete this version';delete $('verDel').dataset.ok}
+$('verSel').onchange=e=>verSwitch(e.target.value);
+$('verNew').onclick=()=>{$('verNewRow').hidden=false;$('verName').focus()};$('verCancel').onclick=()=>{$('verNewRow').hidden=true};
+$('verMake').onclick=async()=>{const name=$('verName').value.trim().slice(0,60);if(!name){$('verName').focus();return}
+  const id=name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||('v'+Date.now());if(verList.some(v=>v.id===id)){verSwitch(id);$('verNewRow').hidden=true;return}
+  try{await sdb.doc('copies/'+id).set({name,s:state(),rev:REV,t:Date.now(),by:shMe||null});$('verNewRow').hidden=true;$('verName').value='';verList.push({id,name});verSwitch(id);toast(`Created ${name}'s version, starting from the house as it looks now.`)}
+  catch(e){syncNote(e&&e.code==='quota_exceeded'?'There is no room for another version. Delete one first.':'Only people with edit access can create versions.',true)}};
+async function toMain(whole){try{let s1=state();if(!whole){const m=await sdb.doc('house/current').get();if(m.exists){const v=JSON.parse(m.data().s);v.design=design;s1=JSON.stringify(v)}}
+    await sdb.doc('house/current').set({s:s1,rev:REV,t:Date.now(),by:shMe||null});toast(whole?`Copied ${workName(workId)} into the main house.`:`Copied the finishes from ${workName(workId)} into the main house.`);syncNote(`${whole?'Whole house':'Finishes'} copied to the main house. You are still working on ${workName(workId)}.`)}
+  catch(e){syncNote('Only people with edit access can change the main house.',true)}}
+$('verFin').onclick=()=>toMain(false);$('verAll').onclick=()=>{if($('verAll').dataset.ok){delete $('verAll').dataset.ok;$('verAll').textContent='Copy whole house to main';toMain(true)}else{$('verAll').dataset.ok=1;$('verAll').textContent='Replace the main house? Click again'}};
+$('verLink').onclick=()=>copyText(location.href.split('#')[0]+'#'+workId);
+$('verDel').onclick=async()=>{const b=$('verDel');if(!b.dataset.ok){b.dataset.ok=1;b.textContent=`Delete ${workName(workId)} for everyone?`;return}
+  const id=workId;try{await sdb.doc('copies/'+id).delete();verList=verList.filter(v=>v.id!==id);verSwitch('main');toast('Deleted that version. The main house is unchanged.')}catch(e){syncNote('Only people with edit access can delete versions.',true)}};
 function shRemote(snap){
+  if(!snap.exists&&workId!=='main'&&!snap.metadata.fromCache){verSwitch('main');return}
   if(!snap.exists){if(snap.metadata.fromCache)return;lastShared=null;
     if(sUser)sUser.isOwner().then(o=>{if(o&&!staleCopy)shPush(state());else syncNote('Shared page · nobody has saved changes yet. What you change here is saved for everyone with edit access.')});return}
   const d=snap.data();if(snap.metadata.hasPendingWrites)return;
@@ -2003,8 +2037,8 @@ function shRemote(snap){
   refresh();stRefresh();shStatus(d,true)}
 async function shStatus(d,applied){let who='';try{if(d.by){if(d.by===shMe)who='you';else if(sUser){const ps=await sUser.profiles([d.by]);who=(ps[d.by]&&ps[d.by].name)||'someone'}}}catch(e){}
   const when=d.t?new Date(d.t).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'';
-  syncNote(`Shared house · everyone with edit access sees the same version${who?` · last change by ${who}`:''}${when?', '+when:''}${applied?' · just updated':''}`)}
-async function shPush(s){if(!sref||!shReady||shBusy||s===lastShared||staleCopy||shCanWrite===false||Date.now()-shFailAt<15000)return;
+  syncNote(`${workId==='main'?'Main house · everyone with edit access sees the same version':workName(workId)+' · a personal version; the main house is not affected'}${who?` · last change by ${who}`:''}${when?', '+when:''}${applied?' · just updated':''}`)}
+async function shPush(s){if(!sdb||!sref||!shReady||shBusy||s===lastShared||staleCopy||shCanWrite===false||Date.now()-shFailAt<15000)return;
   if(s.length>250000){shFailAt=Date.now();syncNote('This version is too big to share, usually because of large uploaded images. Use smaller pictures; your edits are kept in this browser.',true);return}
   shBusy=true;const prev=lastShared;lastShared=s;const t=Date.now();
   try{await sref.set({s,rev:REV,t,by:shMe||null});shStatus({by:shMe,t})}
