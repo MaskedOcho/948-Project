@@ -24,9 +24,15 @@ The live model has a **Working on** menu at the top: the **Main house** everyone
 (e.g. *Kandyce Blocker*, link ends in `#kandyce-blocker`). Edits in a personal version never touch the main house until someone
 uses **Copy finishes to main house** or **Copy whole house to main**.
 
+## Photo render (path tracing)
+Press **Photo render** in the live model to path-trace the exact view on screen (screen size, HD or 4K): light bounces off walls,
+floors and glass, soft shadows and real reflections build up over 10–60 s on a desktop GPU. Works for every lighting preset —
+morning, afternoon, golden hour, dusk and night. It loads a newer three.js (r186) and `three-gpu-pathtracer` on demand;
+the live model keeps running on r128.
+
 ## Features
-Editable floor plan · first-person walkthrough · street, aerial, bird's-eye and 360° tours ·
-time of day · design studio with a material ID per surface (presets, colors, texture URL or upload) ·
+Editable floor plan · first-person walkthrough · cinematic walkthrough · street, rear, side, aerial, bird's-eye and 360° views ·
+time of day incl. night · design studio with a material ID per surface (presets, colors, texture URL or upload) ·
 saved designs · optional furniture · GLB export (offline file).
 
 ![Walkthrough views](docs/walkthrough-views.png)
